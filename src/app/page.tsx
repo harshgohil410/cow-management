@@ -119,7 +119,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-[#111827] text-slate-100 selection:bg-indigo-500 selection:text-white">
       
       {/* 1. TOP NAVBAR */}
       <Navbar
@@ -240,7 +240,7 @@ export default function Home() {
           </div>
 
           <div className="text-slate-500">
-            <p>Relational Supabase Architecture • Gujarati & English Dual Support</p>
+            <p>Relational MySQL Architecture • Gujarati & English Dual Support</p>
           </div>
         </div>
       </footer>

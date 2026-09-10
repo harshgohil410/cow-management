@@ -10,7 +10,7 @@ Before starting, ensure you have installed:
 - **Node.js**: v18.17.0 or higher
 - **npm**: v9.0.0 or higher
 - **Git**
-- A **Supabase** account (Free tier works perfectly)
+- **MySQL** 8.0 or higher, local or hosted
 
 ---
 
@@ -28,16 +28,17 @@ npm install
 ```
 
 ### 3. Environment Variables Configuration
-Create a `.env.local` file in the project root directory:
-```bash
-cp .env.example .env.local
+Create or update `.env.local` in the project root:
+
+```env
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=your_mysql_user
+MYSQL_PASSWORD=your_mysql_password
+MYSQL_DATABASE=gaushala
 ```
 
-Add your Supabase credentials:
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-```
+These variables are server-only. Do not prefix MySQL credentials with `NEXT_PUBLIC_`.
 
 ### 4. Running Dev Server
 ```bash
@@ -47,18 +48,22 @@ Visit `http://localhost:3000`.
 
 ---
 
-## 🗄️ Database Setup (Supabase / PostgreSQL)
+## 🗄️ Database Setup (MySQL)
 
-1. Log in to [Supabase Console](https://supabase.com/dashboard) and create a project named `Gaushala DB`.
-2. Go to **SQL Editor** in the left sidebar.
-3. Click **New Query**.
-4. Open the `supabase/schema.sql` file from this repository, paste its entire contents into the SQL Editor, and click **Run**.
+1. Create a MySQL database user with permission to create and modify the `gaushala` database.
+2. Run the schema from the repository:
+
+   ```bash
+   mysql -u your_mysql_user -p < mysql/schema.sql
+   ```
+
+3. Confirm the database name matches `MYSQL_DATABASE` in `.env.local`.
 
 ### Included Schema Features:
-- 18+ normalized relational tables (`cows`, `pregnancies`, `deliveries`, `medical_records`, `vaccinations`, `milk_records`, `feed_records`, `audit_logs`, etc.).
+- Normalized relational tables (`cows`, `pregnancies`, `deliveries`, `medical_records`, `vaccinations`, `milk_records`, `feed_records`, `expenses`, `notifications`, and `audit_logs`).
 - Foreign Key Constraints for automatic **Family Tree & Lineage** traversal.
-- Row-Level Security (RLS) policies isolating access for `admin`, `manager`, `staff`, and `vet` roles.
-- Triggers for automatic `updated_at` timestamps and audit logging.
+- Automatic timestamps on records that support updates.
+- Server-side parameterized queries through the `/api/gaushala` route.
 
 ---
 
@@ -83,7 +88,8 @@ npm run build
 
 2. Log in to [Vercel](https://vercel.com).
 3. Import the `cow-management` repository.
-4. Add Environment Variables (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+4. Add the MySQL environment variables (`MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE`) to the deployment environment.
+   The deployment must be able to reach the hosted MySQL server; `localhost` will not refer to your development machine in Vercel.
 5. Click **Deploy**.
 
 ---

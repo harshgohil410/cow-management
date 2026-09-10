@@ -76,8 +76,8 @@ export const StatCards: React.FC<StatCardsProps> = ({ onFilterSelect }) => {
       value: pregnantCount,
       icon: Sparkles,
       color: 'border-slate-800 hover:border-slate-700 text-slate-100',
-      iconColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-      badgeColor: 'bg-purple-500/10 text-purple-400',
+      iconColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      badgeColor: 'bg-amber-500/10 text-amber-400',
       filterType: 'pregnant',
       filterVal: true
     },
@@ -120,8 +120,8 @@ export const StatCards: React.FC<StatCardsProps> = ({ onFilterSelect }) => {
       value: vaccinationsDueCount,
       icon: Syringe,
       color: 'border-slate-800 hover:border-slate-700 text-slate-100',
-      iconColor: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-      badgeColor: 'bg-yellow-500/10 text-yellow-400',
+      iconColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+      badgeColor: 'bg-blue-500/10 text-blue-400',
       filterType: 'vaccine',
       filterVal: true
     }
@@ -135,7 +135,7 @@ export const StatCards: React.FC<StatCardsProps> = ({ onFilterSelect }) => {
           <div
             key={card.id}
             onClick={() => onFilterSelect && onFilterSelect(card.filterType, card.filterVal)}
-            className={`relative bg-slate-900/90 backdrop-blur-md rounded-2xl p-3 border ${card.color} shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group`}
+            className={`relative bg-[#1E293B]/90 backdrop-blur-md rounded-2xl p-3 border ${card.color} shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group`}
           >
             <div className="flex items-center justify-between mb-2">
               <div className={`p-2 rounded-xl border ${card.iconColor}`}>

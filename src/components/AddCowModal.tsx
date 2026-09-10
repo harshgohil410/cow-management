@@ -12,6 +12,11 @@ interface AddCowModalProps {
   editCow?: Cow | null;
 }
 
+const dateInputValue = (value?: string | Date | null) => {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+};
+
 export const AddCowModal: React.FC<AddCowModalProps> = ({ isOpen, onClose, editCow }) => {
   const { t } = useLanguage();
   const { cows, addCow, updateCow, calculateAge } = useGaushala();
@@ -45,8 +50,8 @@ export const AddCowModal: React.FC<AddCowModalProps> = ({ isOpen, onClose, editC
       setGender(editCow.gender);
       setBreed(editCow.breed);
       setColor(editCow.color || '');
-      setDateOfBirth(editCow.dateOfBirth);
-      setEntryDate(editCow.entryDate);
+      setDateOfBirth(dateInputValue(editCow.dateOfBirth));
+      setEntryDate(dateInputValue(editCow.entryDate));
       setSource(editCow.source || 'Born in Gaushala');
       setMotherId(editCow.motherId || '');
       setFatherId(editCow.fatherId || '');
@@ -79,7 +84,7 @@ export const AddCowModal: React.FC<AddCowModalProps> = ({ isOpen, onClose, editC
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -99,51 +104,55 @@ export const AddCowModal: React.FC<AddCowModalProps> = ({ isOpen, onClose, editC
 
     const selectedMother = cows.find(c => c.id === motherId);
 
-    if (editCow) {
-      updateCow(editCow.id, {
-        tagNumber: tagNumber.trim(),
-        name: name.trim() || undefined,
-        photoUrl: photoUrl.trim() || undefined,
-        gender,
-        breed,
-        color,
-        dateOfBirth,
-        entryDate,
-        source,
-        motherId: motherId || null,
-        fatherId: fatherId || null,
-        motherName: selectedMother?.name || selectedMother?.tagNumber,
-        fatherName: fatherName || undefined,
-        status,
-        isPregnant,
-        isLactating,
-        notes
-      });
-    } else {
-      addCow({
-        tagNumber: tagNumber.trim(),
-        name: name.trim() || undefined,
-        photoUrl: photoUrl.trim() || undefined,
-        gender,
-        breed,
-        color,
-        dateOfBirth,
-        entryDate,
-        source,
-        motherId: motherId || null,
-        fatherId: fatherId || null,
-        motherName: selectedMother?.name || selectedMother?.tagNumber,
-        fatherName: fatherName || undefined,
-        status,
-        isPregnant,
-        isLactating,
-        medicalAttentionRequired: false,
-        notes,
-        deliveryCount: 0
-      });
-    }
+    try {
+      if (editCow) {
+        await updateCow(editCow.id, {
+          tagNumber: tagNumber.trim(),
+          name: name.trim() || undefined,
+          photoUrl: photoUrl.trim() || undefined,
+          gender,
+          breed,
+          color,
+          dateOfBirth,
+          entryDate,
+          source,
+          motherId: motherId || null,
+          fatherId: fatherId || null,
+          motherName: selectedMother?.name || selectedMother?.tagNumber,
+          fatherName: fatherName || undefined,
+          status,
+          isPregnant,
+          isLactating,
+          notes
+        });
+      } else {
+        await addCow({
+          tagNumber: tagNumber.trim(),
+          name: name.trim() || undefined,
+          photoUrl: photoUrl.trim() || undefined,
+          gender,
+          breed,
+          color,
+          dateOfBirth,
+          entryDate,
+          source,
+          motherId: motherId || null,
+          fatherId: fatherId || null,
+          motherName: selectedMother?.name || selectedMother?.tagNumber,
+          fatherName: fatherName || undefined,
+          status,
+          isPregnant,
+          isLactating,
+          medicalAttentionRequired: false,
+          notes,
+          deliveryCount: 0
+        });
+      }
 
-    onClose();
+      onClose();
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Unable to save cow.');
+    }
   };
 
   return (

@@ -32,6 +32,13 @@ interface CowProfileModalProps {
   onShowQR: (cow: Cow) => void;
 }
 
+const displayDate = (value?: string) => {
+  if (!value) return '-';
+  const datePart = value.slice(0, 10);
+  const [year, month, day] = datePart.split('-');
+  return year && month && day ? `${day}-${month}-${year}` : value;
+};
+
 export const CowProfileModal: React.FC<CowProfileModalProps> = ({
   cowId,
   isOpen,
@@ -49,12 +56,23 @@ export const CowProfileModal: React.FC<CowProfileModalProps> = ({
     vaccinations, 
     milkRecords, 
     feedRecords,
-    calculateAge 
+    calculateAge,
+    addPregnancyRecord,
+    addDeliveryRecord
   } = useGaushala();
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'family' | 'pregnancy' | 'deliveries' | 'health' | 'vaccinations' | 'milk' | 'feed' | 'documents'
   >('overview');
+  const [inseminationDate, setInseminationDate] = useState(new Date().toISOString().slice(0, 10));
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
+  const [breedingType, setBreedingType] = useState<'Artificial Insemination' | 'Natural'>('Artificial Insemination');
+  const [bullTagOrSemenCode, setBullTagOrSemenCode] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [deliveryType, setDeliveryType] = useState<'normal' | 'assisted' | 'caesarean' | 'stillbirth'>('normal');
+  const [calfId, setCalfId] = useState('');
+  const [calfGender, setCalfGender] = useState<'female' | 'male'>('female');
+  const [workflowMessage, setWorkflowMessage] = useState('');
 
   if (!isOpen || !cowId) return null;
 
@@ -71,7 +89,48 @@ export const CowProfileModal: React.FC<CowProfileModalProps> = ({
   const cowFeed = feedRecords.filter(f => f.cowId === cow.id);
 
   // Computed Vihani count
-  const vihaniCount = cow.deliveryCount ?? cowDeliveries.length;
+  const vihaniCount = cowDeliveries.length;
+  const handlePregnancySubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setWorkflowMessage('');
+    try {
+      await addPregnancyRecord({
+        cowId: cow.id,
+        cowTagNumber: cow.tagNumber,
+        inseminationDate,
+        breedingType,
+        bullTagOrSemenCode,
+        expectedDeliveryDate,
+        status: 'confirmed',
+        createdAt: new Date().toISOString(),
+        notes: ''
+      });
+      setWorkflowMessage('Pregnancy saved. The cow is now marked pregnant.');
+    } catch (error) {
+      setWorkflowMessage(error instanceof Error ? error.message : 'Unable to save pregnancy.');
+    }
+  };
+
+  const handleDeliverySubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setWorkflowMessage('');
+    try {
+      await addDeliveryRecord({
+        motherId: cow.id,
+        motherTag: cow.tagNumber,
+        motherName: cow.name,
+        pregnancyId: cowPregnancies.find(p => p.status === 'confirmed')?.id,
+        calfId: calfId || undefined,
+        calfGender,
+        deliveryDate,
+        deliveryType,
+        notes: ''
+      });
+      setWorkflowMessage(`Delivery saved. Total Deliveries (Vihani): ${vihaniCount + 1}`);
+    } catch (error) {
+      setWorkflowMessage(error instanceof Error ? error.message : 'Unable to save delivery.');
+    }
+  };
 
   const tabs = [
     { id: 'overview', label: t('tabOverview'), icon: Sparkles },
@@ -190,7 +249,7 @@ export const CowProfileModal: React.FC<CowProfileModalProps> = ({
                   <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Tag & Registration</span>
                   <p className="text-xl font-bold text-indigo-400 font-mono mt-1">{cow.tagNumber}</p>
                   <p className="text-xs text-slate-300 mt-1">Source: {cow.source || 'Gaushala Born'}</p>
-                  <p className="text-xs text-slate-400">Entry Date: {cow.entryDate}</p>
+                  <p className="text-xs text-slate-400">Entry Date: {displayDate(cow.entryDate)}</p>
                 </div>
 
                 <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
@@ -292,10 +351,32 @@ export const CowProfileModal: React.FC<CowProfileModalProps> = ({
           {/* 3. PREGNANCY TAB */}
           {activeTab === 'pregnancy' && (
             <div className="space-y-4">
-              <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
-                <Heart className="w-4 h-4 text-purple-400" />
-                Breeding & Pregnancy History Records
-              </h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-purple-400" />
+                  Breeding & Pregnancy History Records
+                </h3>
+              </div>
+
+              <form onSubmit={handlePregnancySubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-950/60 border border-slate-800 p-3 rounded-2xl">
+                <label className="text-[10px] text-slate-400">Insemination Date
+                  <input required type="date" value={inseminationDate} onChange={event => setInseminationDate(event.target.value)} className="mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200" />
+                </label>
+                <label className="text-[10px] text-slate-400">Expected Delivery Date
+                  <input required type="date" value={expectedDeliveryDate} onChange={event => setExpectedDeliveryDate(event.target.value)} className="mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200" />
+                </label>
+                <label className="text-[10px] text-slate-400">Breeding Type
+                  <select value={breedingType} onChange={event => setBreedingType(event.target.value as typeof breedingType)} className="mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200">
+                    <option>Artificial Insemination</option>
+                    <option>Natural</option>
+                  </select>
+                </label>
+                <label className="text-[10px] text-slate-400">Bull / Semen Code
+                  <input value={bullTagOrSemenCode} onChange={event => setBullTagOrSemenCode(event.target.value)} className="mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200" />
+                </label>
+                <button type="submit" className="sm:col-span-2 justify-self-start bg-orange-500 hover:bg-orange-400 text-white rounded-lg px-3 py-2 text-xs font-semibold">Save Pregnancy</button>
+              </form>
+              {workflowMessage && <p className="text-xs text-orange-300">{workflowMessage}</p>}
 
               {cowPregnancies.length === 0 ? (
                 <p className="text-xs text-slate-500 py-6 text-center">No pregnancy records logged for this cow.</p>
@@ -334,6 +415,34 @@ export const CowProfileModal: React.FC<CowProfileModalProps> = ({
                   Vihani Count: {vihaniCount}
                 </span>
               </div>
+
+              <form onSubmit={handleDeliverySubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-950/60 border border-slate-800 p-3 rounded-2xl">
+                <label className="text-[10px] text-slate-400">Delivery Date
+                  <input required type="date" value={deliveryDate} onChange={event => setDeliveryDate(event.target.value)} className="mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200" />
+                </label>
+                <label className="text-[10px] text-slate-400">Calf Gender
+                  <select value={calfGender} onChange={event => setCalfGender(event.target.value as typeof calfGender)} className="mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200">
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                  </select>
+                </label>
+                <label className="text-[10px] text-slate-400">Delivery Type
+                  <select value={deliveryType} onChange={event => setDeliveryType(event.target.value as typeof deliveryType)} className="mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200">
+                    <option value="normal">Normal</option>
+                    <option value="assisted">Assisted</option>
+                    <option value="caesarean">Caesarean</option>
+                    <option value="stillbirth">Stillbirth</option>
+                  </select>
+                </label>
+                <label className="text-[10px] text-slate-400">Existing Calf (optional)
+                  <select value={calfId} onChange={event => setCalfId(event.target.value)} className="mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200">
+                    <option value="">Add calf later</option>
+                    {cows.filter(otherCow => otherCow.id !== cow.id).map(otherCow => <option key={otherCow.id} value={otherCow.id}>{otherCow.tagNumber} - {otherCow.name || 'Unnamed'}</option>)}
+                  </select>
+                </label>
+                <button type="submit" className="sm:col-span-2 justify-self-start bg-orange-500 hover:bg-orange-400 text-white rounded-lg px-3 py-2 text-xs font-semibold">Save Delivery / Vihani</button>
+              </form>
+              {workflowMessage && <p className="text-xs text-orange-300">{workflowMessage}</p>}
 
               {cowDeliveries.length === 0 ? (
                 <p className="text-xs text-slate-500 py-6 text-center">No detailed delivery logs recorded.</p>

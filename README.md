@@ -6,7 +6,7 @@ A modern, production-ready, mobile-friendly PWA Cattle Management System for rea
 ![Next.js](https://img.shields.io/badge/Next.js-16+-black.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)
-![Database](https://img.shields.io/badge/Supabase-PostgreSQL-emerald.svg)
+![Database](https://img.shields.io/badge/MySQL-8+-4479A1.svg)
 
 ---
 
@@ -37,7 +37,7 @@ A modern, production-ready, mobile-friendly PWA Cattle Management System for rea
   - **Documents**: Registration certificates & attachments.
 - **📱 Field QR Code Scanner**: Scan cattle ear tags in the gaushala shed using device camera or manual reader.
 - **📜 Audit Logging**: Security log tracking staff modifications (e.g. *"Staff A updated Gauri's vaccination date"*).
-- **🗃️ Relational Supabase Schema**: 18+ normalized tables (`cows`, `pregnancies`, `deliveries`, `medical_records`, `vaccinations`, `milk_records`, `feed_records`, `audit_logs`, etc.) with PostgreSQL RLS policies.
+- **🗃️ Relational MySQL Database**: Normalized tables (`cows`, `pregnancies`, `deliveries`, `medical_records`, `vaccinations`, `milk_records`, `feed_records`, `audit_logs`, etc.) accessed through a server-side Next.js API.
 
 ---
 
@@ -46,6 +46,7 @@ A modern, production-ready, mobile-friendly PWA Cattle Management System for rea
 ### Prerequisites
 - Node.js (v18.0.0 or higher)
 - npm or yarn
+- MySQL 8.0 or higher
 
 ### Installation
 
@@ -65,17 +66,26 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🗄️ Database Schema Setup (Supabase / PostgreSQL)
+## 🗄️ Database Schema Setup (MySQL)
 
-1. Create a new Supabase project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor in Supabase.
-3. Run the SQL script located in `supabase/schema.sql`.
-4. Copy your Supabase URL and anon key into `.env.local`:
+1. Start a local or hosted MySQL 8+ server.
+2. Create the database and tables from `mysql/schema.sql`:
+
+```bash
+mysql -u your_mysql_user -p < mysql/schema.sql
+```
+
+3. Configure the server-only MySQL credentials in `.env.local`:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-url.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=your_mysql_user
+MYSQL_PASSWORD=your_mysql_password
+MYSQL_DATABASE=gaushala
 ```
+
+The browser communicates with MySQL through the `/api/gaushala` Next.js route. MySQL credentials must never use the `NEXT_PUBLIC_` prefix.
 
 For detailed deployment instructions, see [SETUP.md](./SETUP.md).
 
@@ -89,7 +99,7 @@ For detailed deployment instructions, see [SETUP.md](./SETUP.md).
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **Charts**: [Recharts](https://recharts.org/)
 - **QR Code**: `qrcode.react`
-- **Database**: [Supabase PostgreSQL](https://supabase.com/)
+- **Database**: [MySQL](https://www.mysql.com/) through `mysql2`
 
 ---
 

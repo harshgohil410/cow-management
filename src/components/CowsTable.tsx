@@ -123,7 +123,7 @@ export const CowsTable: React.FC<CowsTableProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md my-6">
+    <div className="bg-[#1E293B]/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md my-6">
       
       {/* Header & Quick Add */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4 mb-5">

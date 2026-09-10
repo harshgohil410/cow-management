@@ -9,12 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.109.0",
     "@types/canvas-confetti": "^1.9.0",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.33.0",
+    "mysql2": "^3.24.4",
     "next": "16.3.2",
     "qrcode.react": "^4.2.0",
     "react": "19.2.8",

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useGaushala } from '@/context/GaushalaContext';
 import { 
@@ -18,19 +18,24 @@ import {
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
-  ComposedChart, 
-  Line, 
+  BarChart, 
   Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
-  Legend 
+  Tooltip
 } from 'recharts';
 
 interface DashboardWidgetsProps {
   onSelectCow: (cowId: string) => void;
 }
+
+type ChartRange = 'daily' | 'weekly' | 'monthly';
+
+const dateKey = (value: string | Date) => {
+  const valueString = value instanceof Date ? value.toISOString() : String(value);
+  return valueString.slice(0, 10);
+};
 
 export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow }) => {
   const { t } = useLanguage();
@@ -50,44 +55,115 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
   const [quickLiters, setQuickLiters] = useState('');
   const [quickSession, setQuickSession] = useState<'Morning' | 'Evening'>('Morning');
   const [showMilkSuccess, setShowMilkSuccess] = useState(false);
+  const [milkError, setMilkError] = useState('');
+  const [chartRange, setChartRange] = useState<ChartRange>('monthly');
+
+  useEffect(() => {
+    const firstFemaleCow = cows.find(cow => cow.gender === 'female');
+    if (firstFemaleCow && !cows.some(cow => String(cow.id) === quickCowId)) {
+      setQuickCowId(String(firstFemaleCow.id));
+    }
+  }, [cows, quickCowId]);
 
   // Today's total milk calculation
   const todayStr = new Date().toISOString().split('T')[0];
   const todaysMilkTotal = milkRecords
-    .filter(m => m.recordDate === todayStr)
+    .filter(m => dateKey(m.recordDate) === todayStr)
     .reduce((sum, r) => sum + r.quantityLiters, 0);
 
-  const handleQuickMilkSubmit = (e: React.FormEvent) => {
+  const handleQuickMilkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickCowId || !quickLiters) return;
+    setMilkError('');
+    setShowMilkSuccess(false);
+    const quantityLiters = Number(quickLiters);
+    if (!quickCowId || !Number.isFinite(quantityLiters) || quantityLiters <= 0) {
+      setMilkError('Select a cow and enter a valid milk quantity.');
+      return;
+    }
 
-    const cow = cows.find(c => c.id === quickCowId);
-    if (!cow) return;
+    const cow = cows.find(c => String(c.id) === quickCowId);
+    if (!cow) {
+      setMilkError('No cow is available for this milk record.');
+      return;
+    }
 
-    addMilkRecord({
-      cowId: cow.id,
-      cowTag: cow.tagNumber,
-      cowName: cow.name || cow.tagNumber,
-      recordDate: todayStr,
-      session: quickSession,
-      quantityLiters: parseFloat(quickLiters),
-      recordedBy: 'Gaushala Staff'
-    });
+    try {
+      await addMilkRecord({
+        cowId: cow.id,
+        cowTag: cow.tagNumber,
+        cowName: cow.name || cow.tagNumber,
+        recordDate: todayStr,
+        session: quickSession,
+        quantityLiters,
+        recordedBy: 'Gaushala Staff'
+      });
 
-    setQuickLiters('');
-    setShowMilkSuccess(true);
-    setTimeout(() => setShowMilkSuccess(false), 3000);
+      setQuickLiters('');
+      setShowMilkSuccess(true);
+      setTimeout(() => setShowMilkSuccess(false), 3000);
+    } catch (error) {
+      setMilkError(error instanceof Error ? error.message : 'Unable to save milk record.');
+    }
   };
 
-  // Chart dataset
-  const chartData = [
-    { month: 'Mar', Milk: 1850, Expense: 22000 },
-    { month: 'Apr', Milk: 2100, Expense: 19500 },
-    { month: 'May', Milk: 2450, Expense: 24000 },
-    { month: 'Jun', Milk: 2300, Expense: 21000 },
-    { month: 'Jul', Milk: 2600, Expense: 23500 },
-    { month: 'Aug', Milk: 2850, Expense: 22700 }
-  ];
+  const formatDateKey = (date: Date) => (
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  );
+
+  const chartData = (() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (chartRange === 'daily') {
+      return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(today);
+        date.setDate(today.getDate() - (6 - index));
+        const currentDateKey = formatDateKey(date);
+        const totalMilk = milkRecords
+          .filter(record => dateKey(record.recordDate) === currentDateKey)
+          .reduce((total, record) => total + Number(record.quantityLiters), 0);
+        return {
+          period: date.toLocaleDateString(undefined, { weekday: 'short' }),
+          Milk: Number(totalMilk.toFixed(1))
+        };
+      });
+    }
+
+    if (chartRange === 'weekly') {
+      const mondayOffset = (today.getDay() + 6) % 7;
+      const currentMonday = new Date(today);
+      currentMonday.setDate(today.getDate() - mondayOffset);
+      return Array.from({ length: 6 }, (_, index) => {
+        const start = new Date(currentMonday);
+        start.setDate(currentMonday.getDate() - (5 - index) * 7);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        const startKey = formatDateKey(start);
+        const endKey = formatDateKey(end);
+        const totalMilk = milkRecords
+          .filter(record => dateKey(record.recordDate) >= startKey && dateKey(record.recordDate) <= endKey)
+          .reduce((total, record) => total + Number(record.quantityLiters), 0);
+        return {
+          period: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          Milk: Number(totalMilk.toFixed(1))
+        };
+      });
+    }
+
+    return Array.from({ length: 6 }, (_, index) => {
+      const monthDate = new Date(today);
+      monthDate.setDate(1);
+      monthDate.setMonth(monthDate.getMonth() - (5 - index));
+      const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+      const totalMilk = milkRecords
+        .filter(record => dateKey(record.recordDate).startsWith(monthKey))
+        .reduce((total, record) => total + Number(record.quantityLiters), 0);
+      return {
+        period: monthDate.toLocaleDateString(undefined, { month: 'short' }),
+        Milk: Number(totalMilk.toFixed(1))
+      };
+    });
+  })();
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 my-6">
@@ -96,7 +172,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
       <div className="space-y-6">
         
         {/* 🔔 Today's Alerts Widget */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
+        <div className="bg-[#1E293B]/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
           <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
             <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
               <Bell className="w-4 h-4 text-amber-400" />
@@ -151,7 +227,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
         </div>
 
         {/* 🥛 Today's Milk Production Widget */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
+        <div className="bg-[#1E293B]/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
           <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
@@ -225,6 +301,9 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
                 <CheckCircle className="w-3.5 h-3.5" /> Milk record saved!
               </p>
             )}
+            {milkError && (
+              <p className="text-[11px] text-rose-400 font-medium mt-1">{milkError}</p>
+            )}
           </form>
         </div>
 
@@ -233,35 +312,45 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
       {/* CENTER & RIGHT COLUMN: Monthly Analytics Chart & Upcoming Vaccinations & Births */}
       <div className="lg:col-span-2 space-y-6">
         
-        {/* 📊 Monthly Milk vs Expense Chart */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
+        {/* 📊 Monthly Milk Production Chart */}
+        <div className="bg-[#1E293B]/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
           <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
             <div>
               <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-indigo-400" />
-                {t('milkVsExpense')}
+                {t('milkProductionChart')}
               </h2>
-              <p className="text-[11px] text-slate-400">Monthly Production (Liters) vs Feed & Health Cost (₹)</p>
+              <p className="text-[11px] text-slate-400">Actual milk records from the last six months (liters)</p>
             </div>
-            <span className="text-[11px] text-slate-300 bg-slate-800/80 px-3 py-1 rounded-full font-medium border border-slate-700">
-              2026 Analytics
-            </span>
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-950/60 border border-slate-800">
+              {(['daily', 'weekly', 'monthly'] as ChartRange[]).map(range => (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setChartRange(range)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition ${
+                    chartRange === range
+                      ? 'bg-orange-500 text-white'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  {t(`chart${range[0].toUpperCase()}${range.slice(1)}` as 'chartDaily' | 'chartWeekly' | 'chartMonthly')}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: -10 }}>
+              <BarChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: -10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.6} />
-                <XAxis dataKey="month" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <YAxis yAxisId="left" stroke="#38bdf8" tick={{ fill: '#38bdf8', fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#818cf8" tick={{ fill: '#818cf8', fontSize: 11 }} />
+                <XAxis dataKey="period" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                <YAxis stroke="#5F9B57" tick={{ fill: '#5F9B57', fontSize: 11 }} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#f8fafc' }}
                 />
-                <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px' }} />
-                <Bar yAxisId="left" dataKey="Milk" name="Milk Production (Liters)" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-                <Line yAxisId="right" type="monotone" dataKey="Expense" name="Expenses (₹)" stroke="#818cf8" strokeWidth={2.5} dot={{ r: 4, fill: '#818cf8' }} />
-              </ComposedChart>
+                <Bar dataKey="Milk" name="Milk Production (Liters)" fill="#5F9B57" radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -270,7 +359,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* 🍼 Recent Births */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
+          <div className="bg-[#1E293B]/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
             <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
               <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
                 <Baby className="w-4 h-4 text-emerald-400" />
@@ -282,7 +371,9 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
             </div>
 
             <div className="space-y-2">
-              {deliveries.slice(0, 3).map((d) => (
+              {deliveries.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">No birth records in MySQL yet.</p>
+              ) : deliveries.slice(0, 3).map((d) => (
                 <div 
                   key={d.id}
                   onClick={() => d.calfId && onSelectCow(d.calfId)}
@@ -309,7 +400,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
           <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl backdrop-blur-md">
             <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
               <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
-                <Syringe className="w-4 h-4 text-indigo-400" />
+                <Syringe className="w-4 h-4 text-blue-400" />
                 {t('upcomingVaccinations')}
               </h3>
               <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full font-medium">
@@ -327,7 +418,7 @@ export const DashboardWidgets: React.FC<DashboardWidgetsProps> = ({ onSelectCow 
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-xs text-slate-200">{v.cowTag} ({v.cowName || 'Cow'})</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-medium border border-indigo-500/20">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-medium border border-blue-500/20">
                         {v.vaccineName}
                       </span>
                     </div>
